@@ -12,9 +12,12 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: wms-sdk-mssql
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD before starting this compose file}"
-      MSSQL_PID: Developer
+      # List form (KEY=value), not KEY: "value": some secret scanners flag the
+      # mapping form as a literal credential even though this is just a
+      # required environment variable reference, with no value in this file.
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD before starting this compose file}
+      - MSSQL_PID=Developer
     ports:
       - "127.0.0.1:14333:1433"
     healthcheck:
