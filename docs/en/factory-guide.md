@@ -18,7 +18,7 @@ tests/
 `wms-sdk init` writes the whole project: the sections below already done, with `TODO(wms)` where the factory must decide. The project also gets **a copy of the SDK** in `wms_sdk/` (only the chosen features), so the factory's team, its CI and its images install nothing from the private repository and need no GitHub access. Only whoever runs `wms-sdk` needs the SDK installed:
 
 ```bash
-pip install "wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 wms-sdk init                                    # or: python -m wms_sdk init
 ```
 
@@ -92,7 +92,7 @@ To add a feature later: `wms-sdk vendor --features routing` adds it to the copy;
 ## 1. Install
 
 ```bash
-pip install "wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 ```
 
 The repository is private: you need access and a signed-in git. Sign-in options, pinning, upgrades and installing from a wheel are in [Installation](installation.md).

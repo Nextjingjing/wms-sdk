@@ -13,7 +13,7 @@ Python + SQLAlchemy 2.0, targeting Microsoft SQL Server.
 ## Install
 
 ```bash
-pip install "wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 ```
 
 The repository is private; see [Installation](docs/en/installation.md) for sign-in options.

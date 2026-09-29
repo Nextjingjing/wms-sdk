@@ -5,7 +5,7 @@
 The SDK lives in a **private** GitHub repository:
 
 ```
-https://github.com/nextpruek/wms-database-sdk
+https://github.com/Nextjingjing/wms-sdk
 ```
 
 | You want to | Read |
@@ -26,7 +26,7 @@ https://github.com/nextpruek/wms-database-sdk
 Always pin a version tag, so everyone installs the same code.
 
 ```bash
-pip install "wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 ```
 
 - `[mssql]` also installs `pyodbc` for SQL Server; leave it out for SQLite-only use
@@ -55,13 +55,13 @@ pip runs git, and git needs your GitHub credentials.
 SSH URL:
 
 ```bash
-pip install "wms-sdk[mssql] @ git+ssh://git@github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+ssh://git@github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 ```
 
 With a token, read it from an environment variable. **Never write a token into a file that is committed.**
 
 ```bash
-pip install "wms-sdk[mssql] @ git+https://${GITHUB_TOKEN}@github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+https://${GITHUB_TOKEN}@github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 ```
 
 ### Add it to your project
@@ -69,7 +69,7 @@ pip install "wms-sdk[mssql] @ git+https://${GITHUB_TOKEN}@github.com/nextpruek/w
 `requirements.txt`:
 
 ```
-wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2
+wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2
 ```
 
 or `pyproject.toml`:
@@ -77,7 +77,7 @@ or `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-    "wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2",
+    "wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2",
 ]
 ```
 
@@ -131,8 +131,8 @@ pip uninstall wms-sdk
 ## Work on the SDK
 
 ```bash
-git clone https://github.com/nextpruek/wms-database-sdk.git
-cd wms-database-sdk
+git clone https://github.com/Nextjingjing/wms-sdk.git
+cd wms-sdk
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-dev.txt   # Linux / macOS: .venv/bin/python
 .venv\Scripts\python -m pytest

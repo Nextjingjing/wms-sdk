@@ -20,7 +20,7 @@ from pathlib import Path
 
 from .. import __version__
 
-REPOSITORY = "https://github.com/nextpruek/wms-database-sdk.git"
+REPOSITORY = "https://github.com/Nextjingjing/wms-sdk.git"
 TODO = "TODO(wms)"
 CONTAINER_FILES = {"Containerfile", ".containerignore", ".env.example"}
 # The SDK's dependencies per extra, as in pyproject.toml ("" = always).

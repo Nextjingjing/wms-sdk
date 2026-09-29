@@ -18,7 +18,7 @@ tests/
 `wms-sdk init` เขียนทั้งโปรเจกต์ให้ โดยทำหัวข้อด้านล่างไว้แล้ว และใส่ `TODO(wms)` ตรงที่โรงงานต้องตัดสินใจเอง โปรเจกต์ยังได้ **สำเนาของ SDK** ใน `wms_sdk/` (เฉพาะ feature ที่เลือก) ด้วย ทีมของโรงงาน, CI และ image จึงไม่ต้องติดตั้งอะไรจาก repo private และไม่ต้องมีสิทธิ์เข้า GitHub คนที่ต้องติดตั้ง SDK มีแค่คนที่รัน `wms-sdk`:
 
 ```bash
-pip install "wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 wms-sdk init                                    # หรือ: python -m wms_sdk init
 ```
 
@@ -92,7 +92,7 @@ Then read the release notes and create a migration (README.md, section 3).
 ## 1. ติดตั้ง
 
 ```bash
-pip install "wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 ```
 
 repo เป็น private ต้องมีสิทธิ์เข้าและ login git ไว้ วิธี login, การระบุเวอร์ชัน, การอัปเกรด และการติดตั้งจาก wheel อยู่ใน [การติดตั้ง](installation.md)

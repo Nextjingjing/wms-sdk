@@ -5,7 +5,7 @@
 SDK อยู่ใน GitHub repository แบบ **private**:
 
 ```
-https://github.com/nextpruek/wms-database-sdk
+https://github.com/Nextjingjing/wms-sdk
 ```
 
 | ต้องการ | อ่าน |
@@ -26,7 +26,7 @@ https://github.com/nextpruek/wms-database-sdk
 ระบุ tag ของเวอร์ชันเสมอ ทุกคนจะได้โค้ดชุดเดียวกัน
 
 ```bash
-pip install "wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 ```
 
 - `[mssql]` ติดตั้ง `pyodbc` สำหรับ SQL Server ด้วย ถ้าใช้แค่ SQLite ไม่ต้องใส่
@@ -55,13 +55,13 @@ pip เรียก git และ git ต้องใช้บัญชี GitHu
 URL แบบ SSH:
 
 ```bash
-pip install "wms-sdk[mssql] @ git+ssh://git@github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+ssh://git@github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 ```
 
 ถ้าใช้ token ให้อ่านจาก environment variable **ห้ามเขียน token ลงไฟล์ที่ถูก commit**
 
 ```bash
-pip install "wms-sdk[mssql] @ git+https://${GITHUB_TOKEN}@github.com/nextpruek/wms-database-sdk.git@v0.1.2"
+pip install "wms-sdk[mssql] @ git+https://${GITHUB_TOKEN}@github.com/Nextjingjing/wms-sdk.git@v0.1.2"
 ```
 
 ### ใส่ในโปรเจกต์
@@ -69,7 +69,7 @@ pip install "wms-sdk[mssql] @ git+https://${GITHUB_TOKEN}@github.com/nextpruek/w
 `requirements.txt`:
 
 ```
-wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2
+wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2
 ```
 
 หรือ `pyproject.toml`:
@@ -77,7 +77,7 @@ wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2
 ```toml
 [project]
 dependencies = [
-    "wms-sdk[mssql] @ git+https://github.com/nextpruek/wms-database-sdk.git@v0.1.2",
+    "wms-sdk[mssql] @ git+https://github.com/Nextjingjing/wms-sdk.git@v0.1.2",
 ]
 ```
 
@@ -131,8 +131,8 @@ pip uninstall wms-sdk
 ## พัฒนา SDK
 
 ```bash
-git clone https://github.com/nextpruek/wms-database-sdk.git
-cd wms-database-sdk
+git clone https://github.com/Nextjingjing/wms-sdk.git
+cd wms-sdk
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-dev.txt   # Linux / macOS: .venv/bin/python
 .venv\Scripts\python -m pytest
