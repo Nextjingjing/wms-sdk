@@ -1,0 +1,24 @@
+# Local SQL Server for checking the SDK against the real target database:
+#
+#   $env:MSSQL_SA_PASSWORD='pick-your-own-password'   # bash: export MSSQL_SA_PASSWORD=...
+#   docker compose -f dev/mssql/compose.yml up -d
+#   $env:WMS_TEST_MSSQL_URL="mssql+pyodbc://sa:$env:MSSQL_SA_PASSWORD@127.0.0.1,14333/x?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+#   .venv\Scripts\python -m pytest
+#
+# Development only: the port is bound to this machine. MSSQL_SA_PASSWORD is
+# required (no default) so no password ends up committed to the repo.
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: wms-sdk-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD before starting this compose file}"
+      MSSQL_PID: Developer
+    ports:
+      - "127.0.0.1:14333:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30

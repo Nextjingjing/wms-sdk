@@ -1,0 +1,66 @@
+# {{package}}
+
+WMS database of this factory, built on [wms-sdk]({{repository}}) {{version}}. Features: {{features}}.
+
+```
+{{package}}/models.py    interface implementations, enabled features, factory-only lookups
+{{package}}/roles.py     user roles
+{{package}}/seed.py      lookup rows
+wms_sdk/                 copy of wms-sdk {{version}}: do not edit (see "Upgrading the SDK")
+migrations/              Alembic migrations (0001 creates schema messaging)
+tests/                   startup check on SQLite
+<!-- container -->
+Containerfile            image that runs the migrations
+<!-- /container -->
+```
+
+## 1. Fill in the TODOs
+
+Search for `TODO(wms)`: the factory's columns in `models.py`, its roles in `roles.py` and its lookup rows in `seed.py`. Rules: every table and column must be needed by the warehouse data; constraints go in `extra_table_args`, never `__table_args__`. See the SDK's factory guide.
+
+## 2. Install and test
+
+The SDK is already here (`wms_sdk/`); pip installs only its public dependencies.
+
+```bash
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements-dev.txt   # Linux / macOS: .venv/bin/python
+.venv/Scripts/python -m pytest
+```
+
+The test fails with `LookupNotSeeded` until every lookup in `seed.py` has rows. Run Python from this folder, so `import wms_sdk` finds the copy.
+
+## 3. Database
+
+```bash
+export WMS_DATABASE_URL="mssql+pyodbc://user:password@host,1433/wms?driver=ODBC+Driver+18+for+SQL+Server"
+# PowerShell: $env:WMS_DATABASE_URL = "..."
+alembic upgrade head                                  # 0001: schema messaging
+alembic revision --autogenerate -m "initial schema"   # every table: review it before running
+alembic upgrade head
+alembic check                                         # models and database match
+python -m {{package}}.seed                           # lookup rows, then verify_factory
+```
+
+Needs Microsoft ODBC Driver 18 for SQL Server. The application calls `verify_factory(session)` at startup too. After changing `models.py` or upgrading the SDK, repeat `alembic revision --autogenerate`, review, `alembic upgrade head`.
+
+<!-- container -->
+## 4. Container image
+
+```bash
+podman build -t {{package}} .
+cp .env.example .env                    # then set WMS_DATABASE_URL in .env
+podman run --rm --env-file .env {{package}}      # alembic upgrade head
+podman run --rm --env-file .env {{package}} python -m {{package}}.seed
+```
+
+<!-- /container -->
+## Upgrading the SDK
+
+Never edit `wms_sdk/`: an upgrade replaces the whole folder. Someone with the new SDK installed runs, in this folder:
+
+```bash
+wms-sdk vendor
+```
+
+It keeps this project's features and prints the dependencies the new version needs; compare them with `requirements.txt`. Then read the SDK's release notes and create a migration (section 3).

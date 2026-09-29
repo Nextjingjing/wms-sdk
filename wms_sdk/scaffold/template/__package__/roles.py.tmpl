@@ -1,0 +1,13 @@
+"""{{package}}'s user roles. The seed writes these into the `roles` table;
+application code compares against them instead of repeating the strings.
+"""
+
+import enum
+
+
+class RoleCode(enum.StrEnum):
+    """Each user has exactly one role."""
+
+    # TODO(wms): one member per role, e.g.
+    #   FORKLIFT = "Forklift"
+    #   LAB = "Lab"

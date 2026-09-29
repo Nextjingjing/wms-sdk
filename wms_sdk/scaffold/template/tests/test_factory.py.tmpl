@@ -1,0 +1,22 @@
+"""The factory is complete: every interface implemented, every lookup seeded.
+Runs on in-memory SQLite, no SQL Server needed.
+"""
+
+from sqlalchemy.orm import sessionmaker
+
+import {{package}}.models  # noqa: F401
+from {{package}}.seed import seed
+from wms_sdk.checks import verify_factory
+from wms_sdk.metadata import metadata
+from wms_sdk.modules.events.capture import install_capture
+from wms_sdk.testing.sqlite import create_sqlite_engine
+
+
+def test_factory_is_complete():
+    engine = create_sqlite_engine()
+    metadata.create_all(engine)
+    factory = sessionmaker(engine)
+    install_capture(factory)
+    with factory() as session:
+        seed(session)
+        verify_factory(session)

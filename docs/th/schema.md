@@ -1,0 +1,962 @@
+# Schema reference
+
+> ไฟล์นี้สร้างอัตโนมัติด้วย `python -m dev.gen_schema_doc` อย่าแก้ด้วยมือ
+
+**ภาษาไทย** | [English](../en/schema.md)
+
+ครอบคลุม SDK ทั้งหมดและตัวอย่าง `reference_factory` ซึ่ง implement ทุก interface และเปิดทุก feature ชนิดข้อมูลแสดงตามที่จะสร้างบน SQL Server คำอธิบายตารางมาจาก docstring ในโค้ด (ภาษาอังกฤษ)
+
+- คอลัมน์ที่มี ⁽ᶠ⁾ คือคอลัมน์ที่โรงงานเพิ่มเองใน interface ไม่ได้มาจาก SDK
+- `→ table.column` คือ foreign key; FK หลายคอลัมน์แสดงในหัวข้อ “กฎ”
+
+## สารบัญ
+
+- **ข้อมูลหลัก** (core): `plants`, `roles`, `users`
+- **ข้อมูลสินค้า** (core): `products`, `plant_products`, `product_properties`
+- **โครงสร้างคลัง** (core): `warehouses`, `zones`, `locations`, `zone_properties`, `location_properties`
+- **stock** (core): `pallets`
+- **event และการเชื่อมระบบ** (core): `messaging.inbox`, `event_log`, `messaging.outbox`
+- **feature: machines** (เลือกเปิด): `machine_groups`, `machines`, `product_source_machines`
+- **feature: brand** (เลือกเปิด): `brands`
+- **feature: floor_map** (เลือกเปิด): `floor_images`, `warehouse_maps`, `warehouse_map_points`, `location_maps`
+- **feature: routing** (เลือกเปิด): `route_maps`, `route_vertices`, `location_access_points`, `route_edges`
+- **feature: tasks** (เลือกเปิด): `task_statuses`, `task_types`, `tasks`
+- **ตัวอย่าง reference_factory** (ตารางของโรงงาน ไม่ได้อยู่ใน SDK): `abc_classes`, `pallet_fills`, `ticket_formats`, `traffic_flows`
+
+## กลุ่มต่างๆ เชื่อมกันอย่างไร
+
+ลูกศรหมายถึงตารางในกลุ่มหนึ่งอ้างถึงตารางในอีกกลุ่ม แต่ละกลุ่มด้านล่างมีแผนภาพของตัวเอง: เส้นคือ foreign key ขีดตั้งที่ฝั่งตารางแม่ = บังคับ วงกลม = ไม่บังคับ
+
+```mermaid
+flowchart LR
+    g0["ข้อมูลหลัก"]
+    g1["ข้อมูลสินค้า"]
+    g2["โครงสร้างคลัง"]
+    g3["stock"]
+    g4["event และการเชื่อมระบบ"]
+    g5["feature: machines"]
+    g6["feature: brand"]
+    g7["feature: floor_map"]
+    g8["feature: routing"]
+    g9["feature: tasks"]
+    g10["ตัวอย่าง reference_factory"]
+    g1 --> g0
+    g1 --> g6
+    g1 --> g10
+    g2 --> g0
+    g2 --> g10
+    g3 --> g1
+    g3 --> g2
+    g4 --> g0
+    g5 --> g0
+    g5 --> g1
+    g7 --> g2
+    g8 --> g0
+    g8 --> g2
+    g9 --> g0
+    g9 --> g2
+    g9 --> g3
+```
+
+## ข้อมูลหลัก
+
+*core*
+
+```mermaid
+erDiagram
+    plants {
+        varchar code PK
+    }
+    roles {
+        varchar code PK
+    }
+    users {
+        varchar username PK
+    }
+    roles ||--o{ users : "role_code"
+```
+
+### `plants`
+
+Factory plant. Other tables reference it by `code`.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(10) |  | PK |  |
+| `name` | NVARCHAR(50) |  |  |  |
+| `deleted_at` | DATETIME2 | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- UNIQUE (name)
+
+### `roles`
+
+*lookup โรงงาน seed เอง*
+
+User roles; each factory seeds its own set (e.g. 'Forklift', 'Lab').
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(30) |  | PK |  |
+| `name` | NVARCHAR(100) |  |  |  |
+
+### `users`
+
+A person who performs warehouse actions; tables FK here to record who did what. Login and passwords belong to the application, not here.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `username` | VARCHAR(150) |  | PK |  |
+| `employee_id` | VARCHAR(50) |  |  |  |
+| `first_name` | NVARCHAR(150) |  |  |  |
+| `last_name` | NVARCHAR(150) |  |  |  |
+| `email` | VARCHAR(254) | ✓ |  |  |
+| `role_code` | VARCHAR(30) |  | → `roles.code` |  |
+| `deleted_at` | DATETIME2 | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- UNIQUE (employee_id)
+
+## ข้อมูลสินค้า
+
+*core*
+
+```mermaid
+erDiagram
+    products {
+        varchar sku PK
+    }
+    plant_products {
+        varchar plant_code PK
+        varchar sku PK
+    }
+    product_properties {
+        varchar sku PK
+    }
+    plants ||--o{ plant_products : "plant_code"
+    products ||--o{ plant_products : "sku"
+    brands ||--o{ product_properties : "brand_code"
+    products ||--o| product_properties : "sku"
+    ticket_formats ||--o{ product_properties : "ticket_format_code"
+```
+
+### `products`
+
+Product identity only. Properties live in `product_properties`; a missing row means "not set" and must raise, never fall back to a default.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `sku` | VARCHAR(50) |  | PK |  |
+| `name_thai` | NVARCHAR(200) |  |  |  |
+| `name_eng` | VARCHAR(200) |  |  |  |
+| `name_short` | NVARCHAR(100) | ✓ |  |  |
+| `deleted_at` | DATETIME2 | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+### `plant_products`
+
+A product that a plant produces. Stored explicitly (not inferred from machines) so a product is linked to a plant before any machine is chosen. Hard-deleted when the link ends.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `plants.code` |  |
+| `sku` | VARCHAR(50) |  | PK → `products.sku` |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- INDEX (sku)
+
+### `product_properties`
+
+*interface `ProductPropertiesBase` implement โดย `examples.reference_factory.models.ProductProperties`*
+
+**SDK:** Interface for the `product_properties` table: one optional row per sku. A missing row means "not set". The SDK fixes the properties every factory has (`pcs_per_pallet`, `kg_per_pcs`); the factory adds the rest.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `sku` | VARCHAR(50) |  | PK → `products.sku` |  |
+| `pcs_per_pallet` | INTEGER |  |  |  |
+| `kg_per_pcs` | NUMERIC(10, 4) |  |  |  |
+| `pcs_per_box` ⁽ᶠ⁾ | INTEGER | ✓ |  |  |
+| `size` ⁽ᶠ⁾ | NVARCHAR(100) |  |  |  |
+| `size_mm` ⁽ᶠ⁾ | VARCHAR(50) |  |  |  |
+| `length_cm` ⁽ᶠ⁾ | INTEGER | ✓ |  |  |
+| `tis` ⁽ᶠ⁾ | BIT |  |  |  |
+| `ticket_format_code` ⁽ᶠ⁾ | VARCHAR(30) |  | → `ticket_formats.code` |  |
+| `ticket_thai` ⁽ᶠ⁾ | NVARCHAR(150) | ✓ |  |  |
+| `ticket_eng` ⁽ᶠ⁾ | VARCHAR(150) | ✓ |  |  |
+| `customer_sku` ⁽ᶠ⁾ | VARCHAR(20) | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `brand_code` ⁽ᶠ⁾ | VARCHAR(30) |  | → `brands.code` |  |
+
+กฎ:
+
+- CHECK `kg_per_pcs > 0`
+- CHECK `length_cm IS NULL OR length_cm > 0`
+- CHECK `pcs_per_box IS NULL OR pcs_per_box > 0`
+- CHECK `pcs_per_pallet > 0`
+
+## โครงสร้างคลัง
+
+*core*
+
+```mermaid
+erDiagram
+    warehouses {
+        varchar plant_code PK
+        varchar code PK
+    }
+    zones {
+        varchar plant_code PK
+        varchar warehouse_code PK
+        varchar code PK
+    }
+    locations {
+        varchar code PK
+    }
+    zone_properties {
+        varchar plant_code PK
+        varchar warehouse_code PK
+        varchar zone_code PK
+    }
+    location_properties {
+        varchar location_code PK
+    }
+    plants ||--o{ warehouses : "plant_code"
+    warehouses ||--o{ zones : "warehouse_code"
+    zones ||--o{ locations : "zone_code"
+    abc_classes ||--o{ zone_properties : "abc_class_code"
+    pallet_fills ||--o{ zone_properties : "pallet_fill_code"
+    traffic_flows ||--o{ zone_properties : "traffic_flow_code"
+    zones ||--o| zone_properties : "zone_code"
+    locations ||--o| location_properties : "location_code"
+```
+
+### `warehouses`
+
+A storage building or area within a plant. Codes are unique per plant, not globally (two plants may both have a W3).
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `plants.code` |  |
+| `code` | VARCHAR(20) |  | PK |  |
+| `deleted_at` | DATETIME2 | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+### `zones`
+
+An area within a warehouse. Flat: zones do not nest.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `warehouses.plant_code` |  |
+| `warehouse_code` | VARCHAR(20) |  | PK → `warehouses.code` |  |
+| `code` | VARCHAR(20) |  | PK |  |
+| `deleted_at` | DATETIME2 | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- FK (plant_code, warehouse_code) → `warehouses` (plant_code, code)
+
+### `locations`
+
+A place where goods are stored. Addressing and capacity differ per factory, so they live in `location_properties`.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(50) |  | PK |  |
+| `plant_code` | VARCHAR(10) |  | → `zones.plant_code` |  |
+| `warehouse_code` | VARCHAR(20) |  | → `zones.warehouse_code` |  |
+| `zone_code` | VARCHAR(20) |  | → `zones.code` |  |
+| `is_enabled` | BIT |  |  | 1 |
+| `deleted_at` | DATETIME2 | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- FK (plant_code, warehouse_code, zone_code) → `zones` (plant_code, warehouse_code, code)
+- UNIQUE (code, plant_code, warehouse_code)
+- INDEX (plant_code, warehouse_code, zone_code)
+
+### `zone_properties`
+
+*interface `ZonePropertiesBase` implement โดย `examples.reference_factory.models.ZoneProperties`*
+
+**SDK:** Interface for the `zone_properties` table: one optional row per zone, columns defined by the factory (e.g. traffic flow, ABC class). A missing row means "not set".
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `zones.plant_code` |  |
+| `warehouse_code` | VARCHAR(20) |  | PK → `zones.warehouse_code` |  |
+| `zone_code` | VARCHAR(20) |  | PK → `zones.code` |  |
+| `traffic_flow_code` ⁽ᶠ⁾ | VARCHAR(30) |  | → `traffic_flows.code` |  |
+| `pallet_fill_code` ⁽ᶠ⁾ | VARCHAR(30) |  | → `pallet_fills.code` |  |
+| `abc_class_code` ⁽ᶠ⁾ | VARCHAR(30) |  | → `abc_classes.code` |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- FK (plant_code, warehouse_code, zone_code) → `zones` (plant_code, warehouse_code, code)
+
+### `location_properties`
+
+*interface `LocationPropertiesBase` implement โดย `examples.reference_factory.models.LocationProperties`*
+
+**SDK:** Interface for the `location_properties` table: one optional row per location, columns defined by the factory (addressing, capacity). A missing row means "not set".
+
+**โรงงาน:** Floor-stacked pallet lanes: a location is one row of a column.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `location_code` | VARCHAR(50) |  | PK → `locations.code` |  |
+| `plant_code` ⁽ᶠ⁾ | VARCHAR(10) |  | → `locations.plant_code` |  |
+| `warehouse_code` ⁽ᶠ⁾ | VARCHAR(20) |  | → `locations.warehouse_code` |  |
+| `column_no` ⁽ᶠ⁾ | SMALLINT |  |  |  |
+| `row_no` ⁽ᶠ⁾ | SMALLINT |  |  |  |
+| `max_level` ⁽ᶠ⁾ | SMALLINT |  |  |  |
+| `sub_column` ⁽ᶠ⁾ | SMALLINT |  |  |  |
+| `pallet_length_cm` ⁽ᶠ⁾ | INTEGER |  |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `column_no >= 1 AND row_no >= 1`
+- CHECK `max_level >= 1 AND sub_column >= 1`
+- CHECK `pallet_length_cm > 0`
+- FK (location_code, plant_code, warehouse_code) → `locations` (code, plant_code, warehouse_code)
+- UNIQUE (plant_code, warehouse_code, column_no, row_no)
+
+## stock
+
+*core*
+
+```mermaid
+erDiagram
+    pallets {
+        varchar code PK
+    }
+    locations |o--o{ pallets : "location_code"
+    products |o--o{ pallets : "sku"
+```
+
+### `pallets`
+
+*interface `PalletBase` implement โดย `examples.reference_factory.models.Pallet`*
+
+**SDK:** Interface for the `pallets` table: one row per physical, reusable pallet. The goods on it (one sku, one lot) come and go; an empty pallet has no sku/lot/qty. Stock on hand is the sum of `qty` over pallets. Factories add position columns (e.g. level/slot).
+
+**โรงงาน:** Pallets are stacked in floor lanes, so a pallet's position is its location plus level (height) and slot (side by side).
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(50) |  | PK |  |
+| `sku` | VARCHAR(50) | ✓ | → `products.sku` |  |
+| `lot_no` | VARCHAR(50) | ✓ |  |  |
+| `qty` | INTEGER | ✓ |  |  |
+| `qc_status` | VARCHAR(10) | ✓ |  |  |
+| `qc_lock_reason` | NVARCHAR(200) | ✓ |  |  |
+| `location_code` | VARCHAR(50) | ✓ | → `locations.code` |  |
+| `left_at` | DATETIME2 | ✓ |  |  |
+| `level_no` ⁽ᶠ⁾ | SMALLINT | ✓ |  |  |
+| `slot_no` ⁽ᶠ⁾ | SMALLINT | ✓ |  |  |
+| `deleted_at` | DATETIME2 | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `deleted_at IS NULL OR (sku IS NULL AND location_code IS NULL)`
+- CHECK `left_at IS NULL OR location_code IS NULL`
+- CHECK `(sku IS NULL AND lot_no IS NULL AND qty IS NULL) OR (sku IS NOT NULL AND lot_no IS NOT NULL AND qty IS NOT NULL AND qty > 0)`
+- CHECK `(level_no IS NULL AND slot_no IS NULL) OR (level_no IS NOT NULL AND slot_no IS NOT NULL AND level_no >= 1 AND slot_no >= 1 AND location_code IS NOT NULL)`
+- CHECK `(qc_status IS NOT NULL AND qc_status = 'locked' AND qc_lock_reason IS NOT NULL AND qc_lock_reason <> '') OR ((qc_status IS NULL OR qc_status <> 'locked') AND qc_lock_reason IS NULL)`
+- CHECK `pallets.qc_status IN ('waiting', 'locked', 'passed')`
+- CHECK `(sku IS NULL AND qc_status IS NULL) OR (sku IS NOT NULL AND qc_status IS NOT NULL)`
+- CHECK `location_code IS NULL OR sku IS NOT NULL`
+- INDEX (location_code)
+- INDEX (sku, lot_no)
+- UNIQUE INDEX (location_code, level_no, slot_no) WHERE location_code IS NOT NULL
+
+## event และการเชื่อมระบบ
+
+*core*
+
+```mermaid
+erDiagram
+    messaging_inbox {
+        varchar source PK
+        varchar message_id PK
+    }
+    event_log {
+        bigint id PK
+    }
+    messaging_outbox {
+        bigint event_id PK
+        varchar destination PK
+    }
+    users |o--o{ event_log : "actor"
+    event_log ||--o{ messaging_outbox : "event_id"
+```
+
+### `messaging.inbox`
+
+Messages received from external systems, stored before processing. The key is the sender's own message id, so a message delivered twice is stored and processed only once.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `source` | VARCHAR(50) |  | PK |  |
+| `message_id` | VARCHAR(100) |  | PK |  |
+| `message_type` | VARCHAR(100) |  |  |  |
+| `payload` | NVARCHAR(max) |  |  |  |
+| `received_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `processed_at` | DATETIME2 | ✓ |  |  |
+| `attempts` | INTEGER |  |  | 0 |
+| `last_error` | NVARCHAR(max) | ✓ |  |  |
+
+กฎ:
+
+- CHECK `message_type LIKE '%_._%'`
+- CHECK `ISJSON(payload) = 1`
+- INDEX (received_at) WHERE processed_at IS NULL
+
+### `event_log`
+
+Everything that happened in the WMS, append-only. Two sources: data changes captured automatically (`<table>.inserted/updated/deleted`) and business events recorded by code (e.g. `putaway.completed`).
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `id` | BIGINT |  | PK |  |
+| `event_type` | VARCHAR(100) |  |  |  |
+| `subject_table` | VARCHAR(100) | ✓ |  |  |
+| `subject_key` | NVARCHAR(400) | ✓ |  |  |
+| `payload` | NVARCHAR(max) |  |  |  |
+| `operation_id` | UNIQUEIDENTIFIER |  |  |  |
+| `actor` | VARCHAR(150) | ✓ | → `users.username` |  |
+| `occurred_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `event_type LIKE '%_._%'`
+- CHECK `ISJSON(payload) = 1`
+- CHECK `(subject_table IS NULL AND subject_key IS NULL) OR (subject_table IS NOT NULL AND subject_key IS NOT NULL)`
+- CHECK `subject_key IS NULL OR ISJSON(subject_key) = 1`
+- INDEX (actor, occurred_at)
+- INDEX (event_type, occurred_at)
+- INDEX (operation_id)
+- INDEX (subject_table, subject_key, occurred_at)
+
+### `messaging.outbox`
+
+Events waiting to be sent to an external system, one row per destination. Written in the same transaction as the event, so nothing is lost if sending fails; a worker sends rows where `sent_at` is NULL.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `event_id` | BIGINT |  | PK → `event_log.id` |  |
+| `destination` | VARCHAR(50) |  | PK |  |
+| `sent_at` | DATETIME2 | ✓ |  |  |
+| `attempts` | INTEGER |  |  | 0 |
+| `last_error` | NVARCHAR(max) | ✓ |  |  |
+
+กฎ:
+
+- INDEX (event_id) WHERE sent_at IS NULL
+
+## feature: machines
+
+*เลือกเปิด*
+
+```mermaid
+erDiagram
+    machine_groups {
+        varchar code PK
+    }
+    machines {
+        varchar plant_code PK
+        varchar code PK
+    }
+    product_source_machines {
+        varchar plant_code PK
+        varchar sku PK
+        varchar machine_code PK
+    }
+    machine_groups ||--o{ machines : "machine_group_code"
+    plants ||--o{ machines : "plant_code"
+    machines ||--o{ product_source_machines : "machine_code"
+    plant_products ||--o{ product_source_machines : "plant_code, sku"
+```
+
+### `machine_groups`
+
+*lookup โรงงาน seed เอง*
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(30) |  | PK |  |
+| `name` | NVARCHAR(100) |  |  |  |
+
+### `machines`
+
+Production machine. Codes are unique per plant, not globally.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `plants.code` |  |
+| `code` | VARCHAR(20) |  | PK |  |
+| `machine_group_code` | VARCHAR(30) |  | → `machine_groups.code` |  |
+| `deleted_at` | DATETIME2 | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+### `product_source_machines`
+
+A machine that produces a product at a plant. Hard-deleted when the link ends.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `machines.plant_code` → `plant_products.plant_code` |  |
+| `sku` | VARCHAR(50) |  | PK → `plant_products.sku` |  |
+| `machine_code` | VARCHAR(20) |  | PK → `machines.code` |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- FK (plant_code, machine_code) → `machines` (plant_code, code)
+- FK (plant_code, sku) → `plant_products` (plant_code, sku) ON DELETE CASCADE
+- INDEX (plant_code, machine_code)
+
+## feature: brand
+
+*เลือกเปิด*
+
+```mermaid
+erDiagram
+    brands {
+        varchar code PK
+    }
+```
+
+### `brands`
+
+*lookup โรงงาน seed เอง*
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(30) |  | PK |  |
+| `name` | NVARCHAR(100) |  |  |  |
+
+## feature: floor_map
+
+*เลือกเปิด*
+
+```mermaid
+erDiagram
+    floor_images {
+        varchar code PK
+    }
+    warehouse_maps {
+        varchar plant_code PK
+        varchar warehouse_code PK
+    }
+    warehouse_map_points {
+        varchar plant_code PK
+        varchar warehouse_code PK
+        smallint point_no PK
+    }
+    location_maps {
+        varchar location_code PK
+    }
+    floor_images ||--o{ warehouse_maps : "floor_image_code"
+    warehouses ||--o| warehouse_maps : "warehouse_code"
+    warehouse_maps ||--o{ warehouse_map_points : "plant_code, warehouse_code"
+    locations ||--o| location_maps : "location_code"
+```
+
+### `floor_images`
+
+A picture of a site; warehouse outlines are drawn on it. Not tied to a plant: plants sharing one site share one picture.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(30) |  | PK |  |
+| `name` | NVARCHAR(100) |  |  |  |
+| `image_path` | NVARCHAR(500) |  |  |  |
+| `width` | NUMERIC(12, 4) |  |  |  |
+| `height` | NUMERIC(12, 4) |  |  |  |
+| `deleted_at` | DATETIME2 | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `width > 0 AND height > 0`
+
+### `warehouse_maps`
+
+Where a warehouse is drawn on its floor image. One row per warehouse.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `warehouses.plant_code` |  |
+| `warehouse_code` | VARCHAR(20) |  | PK → `warehouses.code` |  |
+| `floor_image_code` | VARCHAR(30) |  | → `floor_images.code` |  |
+| `x` | NUMERIC(12, 4) |  |  |  |
+| `y` | NUMERIC(12, 4) |  |  |  |
+| `width` | NUMERIC(12, 4) |  |  |  |
+| `height` | NUMERIC(12, 4) |  |  |  |
+| `rotation_deg` | NUMERIC(6, 2) |  |  | 0 |
+| `background_path` | NVARCHAR(500) | ✓ |  |  |
+| `metres_per_unit` | NUMERIC(12, 6) | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `rotation_deg >= -360 AND rotation_deg <= 360`
+- CHECK `metres_per_unit IS NULL OR metres_per_unit > 0`
+- CHECK `width > 0 AND height > 0`
+- FK (plant_code, warehouse_code) → `warehouses` (plant_code, code)
+
+### `warehouse_map_points`
+
+Corner of a warehouse outline, as a 0..1 ratio of its bounding box before rotation. A warehouse with no points is drawn as the full box; otherwise it has exactly 4 (check with geometry.polygon_error).
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `warehouse_maps.plant_code` |  |
+| `warehouse_code` | VARCHAR(20) |  | PK → `warehouse_maps.warehouse_code` |  |
+| `point_no` | SMALLINT |  | PK |  |
+| `x_ratio` | NUMERIC(9, 6) |  |  |  |
+| `y_ratio` | NUMERIC(9, 6) |  |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `point_no BETWEEN 1 AND 4`
+- CHECK `x_ratio BETWEEN 0 AND 1 AND y_ratio BETWEEN 0 AND 1`
+- FK (plant_code, warehouse_code) → `warehouse_maps` (plant_code, warehouse_code)
+
+### `location_maps`
+
+Where a location is drawn inside its warehouse drawing.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `location_code` | VARCHAR(50) |  | PK → `locations.code` |  |
+| `x` | NUMERIC(12, 4) |  |  |  |
+| `y` | NUMERIC(12, 4) |  |  |  |
+| `width` | NUMERIC(12, 4) |  |  |  |
+| `height` | NUMERIC(12, 4) |  |  |  |
+| `row_direction` | VARCHAR(10) |  |  |  |
+| `row_gap` | NUMERIC(12, 4) |  |  | 0 |
+| `level_gap` | NUMERIC(12, 4) |  |  | 0 |
+| `label_gap` | NUMERIC(12, 4) |  |  | 0 |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `row_gap >= 0 AND level_gap >= 0 AND label_gap >= 0`
+- CHECK `location_maps.row_direction IN ('up', 'down', 'left', 'right')`
+- CHECK `width >= 0 AND height >= 0`
+
+## feature: routing
+
+*เลือกเปิด*
+
+```mermaid
+erDiagram
+    route_maps {
+        varchar plant_code PK
+        varchar warehouse_code PK
+        integer revision_no PK
+    }
+    route_vertices {
+        varchar plant_code PK
+        varchar warehouse_code PK
+        integer revision_no PK
+        varchar code PK
+    }
+    location_access_points {
+        varchar plant_code PK
+        varchar warehouse_code PK
+        integer revision_no PK
+        varchar location_code PK
+        varchar side PK
+    }
+    route_edges {
+        varchar plant_code PK
+        varchar warehouse_code PK
+        integer revision_no PK
+        varchar from_code PK
+        varchar to_code PK
+    }
+    users |o--o{ route_maps : "published_by"
+    warehouses ||--o{ route_maps : "warehouse_code"
+    route_maps ||--o{ route_vertices : "plant_code, warehouse_code, revision_no"
+    locations ||--o{ location_access_points : "location_code"
+    route_maps ||--o{ location_access_points : "plant_code, warehouse_code, revision_no"
+    route_vertices ||--o{ location_access_points : "road_end_code / road_start_code"
+    route_vertices ||--o{ route_edges : "from_code / to_code"
+```
+
+### `route_maps`
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `warehouses.plant_code` |  |
+| `warehouse_code` | VARCHAR(20) |  | PK → `warehouses.code` |  |
+| `revision_no` | INTEGER |  | PK |  |
+| `status` | VARCHAR(12) |  |  |  |
+| `default_approach_m` | NUMERIC(6, 2) |  |  | 3.00 |
+| `published_at` | DATETIME2 | ✓ |  |  |
+| `published_by` | VARCHAR(150) | ✓ | → `users.username` |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `default_approach_m >= 0`
+- CHECK `(status = 'draft' AND published_at IS NULL) OR (status = 'published' AND published_at IS NOT NULL) OR status = 'archived'`
+- CHECK `revision_no >= 1`
+- CHECK `route_maps.status IN ('draft', 'published', 'archived')`
+- FK (plant_code, warehouse_code) → `warehouses` (plant_code, code)
+- UNIQUE INDEX (plant_code, warehouse_code) WHERE status = 'draft'
+- UNIQUE INDEX (plant_code, warehouse_code) WHERE status = 'published'
+
+### `route_vertices`
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `route_maps.plant_code` |  |
+| `warehouse_code` | VARCHAR(20) |  | PK → `route_maps.warehouse_code` |  |
+| `revision_no` | INTEGER |  | PK → `route_maps.revision_no` |  |
+| `code` | VARCHAR(30) |  | PK |  |
+| `vertex_type` | VARCHAR(12) |  |  |  |
+| `x` | NUMERIC(12, 4) |  |  |  |
+| `y` | NUMERIC(12, 4) |  |  |  |
+| `clearance_m` | NUMERIC(6, 2) |  |  | 3.00 |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `clearance_m >= 0`
+- CHECK `route_vertices.vertex_type IN ('corner', 'junction', 'gate', 'dock')`
+- FK (plant_code, warehouse_code, revision_no) → `route_maps` (plant_code, warehouse_code, revision_no)
+
+### `location_access_points`
+
+Where a location's mouth meets a road, in one route revision.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `locations.plant_code` → `route_maps.plant_code` → `route_vertices.plant_code` |  |
+| `warehouse_code` | VARCHAR(20) |  | PK → `locations.warehouse_code` → `route_maps.warehouse_code` → `route_vertices.warehouse_code` |  |
+| `revision_no` | INTEGER |  | PK → `route_maps.revision_no` → `route_vertices.revision_no` |  |
+| `location_code` | VARCHAR(50) |  | PK → `locations.code` |  |
+| `side` | VARCHAR(12) |  | PK |  |
+| `road_start_code` | VARCHAR(30) |  | → `route_vertices.code` |  |
+| `road_end_code` | VARCHAR(30) |  | → `route_vertices.code` |  |
+| `road_side` | VARCHAR(12) |  |  |  |
+| `offset_ratio` | NUMERIC(9, 6) |  |  |  |
+| `allow_putaway` | BIT |  |  |  |
+| `allow_pick` | BIT |  |  |  |
+| `approach_override_m` | NUMERIC(6, 2) | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `allow_putaway = 1 OR allow_pick = 1`
+- CHECK `approach_override_m IS NULL OR approach_override_m >= 0`
+- CHECK `offset_ratio BETWEEN 0 AND 1`
+- CHECK `location_access_points.road_side IN ('left', 'right')`
+- CHECK `road_start_code < road_end_code`
+- CHECK `location_access_points.side IN ('front', 'back')`
+- FK (location_code, plant_code, warehouse_code) → `locations` (code, plant_code, warehouse_code)
+- FK (plant_code, warehouse_code, revision_no) → `route_maps` (plant_code, warehouse_code, revision_no)
+- FK (plant_code, warehouse_code, revision_no, road_end_code) → `route_vertices` (plant_code, warehouse_code, revision_no, code)
+- FK (plant_code, warehouse_code, revision_no, road_start_code) → `route_vertices` (plant_code, warehouse_code, revision_no, code)
+- INDEX (location_code, plant_code, warehouse_code)
+
+### `route_edges`
+
+One direction of a road. A two-way road has two rows.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `plant_code` | VARCHAR(10) |  | PK → `route_vertices.plant_code` |  |
+| `warehouse_code` | VARCHAR(20) |  | PK → `route_vertices.warehouse_code` |  |
+| `revision_no` | INTEGER |  | PK → `route_vertices.revision_no` |  |
+| `from_code` | VARCHAR(30) |  | PK → `route_vertices.code` |  |
+| `to_code` | VARCHAR(30) |  | PK → `route_vertices.code` |  |
+| `distance_m` | NUMERIC(8, 2) |  |  |  |
+| `distance_source` | VARCHAR(12) |  |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `distance_m > 0`
+- CHECK `route_edges.distance_source IN ('calculated', 'manual')`
+- CHECK `from_code <> to_code`
+- FK (plant_code, warehouse_code, revision_no, from_code) → `route_vertices` (plant_code, warehouse_code, revision_no, code)
+- FK (plant_code, warehouse_code, revision_no, to_code) → `route_vertices` (plant_code, warehouse_code, revision_no, code)
+
+## feature: tasks
+
+*เลือกเปิด*
+
+```mermaid
+erDiagram
+    task_statuses {
+        varchar code PK
+    }
+    task_types {
+        varchar code PK
+    }
+    tasks {
+        bigint id PK
+    }
+    locations |o--o{ tasks : "from_location_code / to_location_code"
+    pallets |o--o{ tasks : "pallet_code"
+    roles ||--o{ tasks : "assigned_role_code"
+    task_statuses ||--o{ tasks : "status_code"
+    task_types ||--o{ tasks : "task_type_code"
+```
+
+### `task_statuses`
+
+*lookup โรงงาน seed เอง*
+
+Task statuses, seeded by each factory (e.g. open, done, cancelled).
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(30) |  | PK |  |
+| `name` | NVARCHAR(100) |  |  |  |
+
+### `task_types`
+
+*lookup โรงงาน seed เอง*
+
+Kinds of work, seeded by each factory (e.g. putaway, pick, qc_check).
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(30) |  | PK |  |
+| `name` | NVARCHAR(100) |  |  |  |
+
+### `tasks`
+
+*interface `TaskBase` implement โดย `examples.reference_factory.models.Task`*
+
+**SDK:** Interface for the `tasks` table: one row per piece of work. The SDK fixes only the id, type and status; the factory adds everything else (who it is for, pallet, from / to, vehicle ...) and configures:
+
+- `active_statuses`: statuses that mean "not finished yet"
+- `reservation_columns`: columns that, on an active task, reserve a place, e.g. ("to_location_code",) or with level / slot. The SDK adds a unique index so two active tasks cannot reserve the same place.
+- `transitions`: allowed status changes for `set_task_status` (None = the status a new task may start in)
+
+**โรงงาน:** Forklift, QC and dispatch work. Assigned to a role; whoever of that role takes it is recorded in the event log. Reserves the destination position (location + level + slot) while active.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `id` | BIGINT |  | PK |  |
+| `task_type_code` | VARCHAR(30) |  | → `task_types.code` |  |
+| `status_code` | VARCHAR(30) |  | → `task_statuses.code` |  |
+| `assigned_role_code` ⁽ᶠ⁾ | VARCHAR(30) |  | → `roles.code` |  |
+| `pallet_code` ⁽ᶠ⁾ | VARCHAR(50) | ✓ | → `pallets.code` |  |
+| `from_location_code` ⁽ᶠ⁾ | VARCHAR(50) | ✓ | → `locations.code` |  |
+| `to_location_code` ⁽ᶠ⁾ | VARCHAR(50) | ✓ | → `locations.code` |  |
+| `to_level_no` ⁽ᶠ⁾ | SMALLINT | ✓ |  |  |
+| `to_slot_no` ⁽ᶠ⁾ | SMALLINT | ✓ |  |  |
+| `reference` ⁽ᶠ⁾ | VARCHAR(50) | ✓ |  |  |
+| `created_at` | DATETIME2 |  |  | sysutcdatetime() |
+| `updated_at` | DATETIME2 |  |  | sysutcdatetime() |
+
+กฎ:
+
+- CHECK `(to_level_no IS NULL AND to_slot_no IS NULL) OR (to_level_no IS NOT NULL AND to_slot_no IS NOT NULL AND to_location_code IS NOT NULL)`
+- INDEX (from_location_code)
+- INDEX (pallet_code)
+- INDEX (status_code, task_type_code)
+- INDEX (to_location_code)
+- UNIQUE INDEX (to_location_code, to_level_no, to_slot_no) WHERE status_code IN ('open', 'in_progress') AND to_location_code IS NOT NULL AND to_level_no IS NOT NULL AND to_slot_no IS NOT NULL
+
+## ตัวอย่าง reference_factory
+
+*ตารางของโรงงาน ไม่ได้อยู่ใน SDK*
+
+```mermaid
+erDiagram
+    abc_classes {
+        varchar code PK
+    }
+    pallet_fills {
+        varchar code PK
+    }
+    ticket_formats {
+        varchar code PK
+    }
+    traffic_flows {
+        varchar code PK
+    }
+```
+
+### `abc_classes`
+
+*lookup โรงงาน seed เอง*
+
+ABC classification: A = fastest-moving goods.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(30) |  | PK |  |
+| `name` | NVARCHAR(100) |  |  |  |
+
+### `pallet_fills`
+
+*lookup โรงงาน seed เอง*
+
+Whether a zone holds full pallets or partial (fraction) pallets.
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(30) |  | PK |  |
+| `name` | NVARCHAR(100) |  |  |  |
+
+### `ticket_formats`
+
+*lookup โรงงาน seed เอง*
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(30) |  | PK |  |
+| `name` | NVARCHAR(100) |  |  |  |
+
+### `traffic_flows`
+
+*lookup โรงงาน seed เอง*
+
+How forklifts may move through a zone (one-way / two-way).
+
+| คอลัมน์ | ชนิด | NULL | key | default |
+|---|---|---|---|---|
+| `code` | VARCHAR(30) |  | PK |  |
+| `name` | NVARCHAR(100) |  |  |  |

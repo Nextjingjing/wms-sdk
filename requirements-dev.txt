@@ -1,0 +1,7 @@
+-r requirements.txt
+pytest==8.3.4
+# optional features (routing, floor_map geometry)
+networkx==3.6.1
+shapely==2.1.2
+# migrations of the reference factory example (examples/reference_factory/migrations)
+alembic==1.20.0

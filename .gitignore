@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.pytest_cache/
+
+# Local SQLite databases (python -m dev.create_db)
+*.sqlite
+*.sqlite3
+*.db
+build/
+dist/
+*.egg-info/
+
+# Output of the .wmsmap picture trial
+demo_map/

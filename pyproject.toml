@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wms-sdk"
+dynamic = ["version"]
+description = "Shared database design for warehouse management (WMS) across factories, on SQLAlchemy and Microsoft SQL Server"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["sqlalchemy>=2.0.43,<2.1"]
+
+[project.scripts]
+wms-sdk = "wms_sdk.cli:main"
+
+[project.optional-dependencies]
+# Driver for Microsoft SQL Server (needs Microsoft ODBC Driver 18 installed).
+mssql = ["pyodbc>=5.2"]
+# Only for the optional features that use them.
+routing = ["networkx>=3.2"]
+floor_map = ["shapely>=2.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "wms_sdk.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["wms_sdk*"]
+
+[tool.setuptools.package-data]
+wms_sdk = ["py.typed", "scaffold/template/**/*"]
